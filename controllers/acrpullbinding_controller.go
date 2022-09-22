@@ -147,8 +147,8 @@ func (r *AcrPullBindingReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 }
 
 func specOrDefault(r *AcrPullBindingReconciler, spec msiacrpullv1beta1.AcrPullBindingSpec) (string, string, string) {
-	msiClientID := spec.ManagedIdentityClientID
-	msiResourceID := path.Clean(spec.ManagedIdentityResourceID)
+	msiClientID := spec.Identity.Managed.ClientID
+	msiResourceID := path.Clean(spec.Identity.Managed.ResourceID)
 	acrServer := spec.AcrServer
 	if msiClientID == "" {
 		msiClientID = r.DefaultManagedIdentityClientID

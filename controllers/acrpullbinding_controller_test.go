@@ -350,7 +350,11 @@ var _ = Describe("AcrPullBinding Controller Tests", func() {
 		It("should deduplicate double slash", func() {
 			reconciler := &AcrPullBindingReconciler{}
 			spec := msiacrpullv1beta1.AcrPullBindingSpec{
-				ManagedIdentityResourceID: "/resourcegroup//doubleslash/singleslash/",
+				Identity: &msiacrpullv1beta1.IdentityConfig{
+					Managed: &msiacrpullv1beta1.ManagedIdentityConfig{
+						ResourceID: "/resourcegroup//doubleslash/singleslash/",
+					},
+				},
 			}
 			_, msiResourceId, _ := specOrDefault(reconciler, spec)
 			Expect(msiResourceId).To(Equal("/resourcegroup/doubleslash/singleslash"))

@@ -31,6 +31,34 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+type ManagedIdentityConfig struct {
+	// The Managed Identity client ID that is used to authenticate with ACR (specify one of ClientID or ResourceID)
+	// +optional
+	ClientID string `json:"ClientID"`
+
+	// The Managed Identity resource ID that is used to authenticate with ACR (if ClientID is specified, this is ignored)
+	// +optional
+	ResourceID string `json:"ResourceID"`
+}
+
+type WorkloadIdentityConfig struct {
+	// The service principal client ID
+	ServicePrincipalClientID string `json:"servicePrincipalClientID"`
+
+	// The service principal tenant ID
+	ServicePrincipalTenantID string `json:"servicePrincipalTenantID"`
+}
+
+type IdentityConfig struct {
+	// Controller uses Workload Identity if both specified.
+
+	// +optional
+	Workload *WorkloadIdentityConfig `json:"workload"`
+
+	// +optional
+	Managed *ManagedIdentityConfig `json:"managed"`
+}
+
 // AcrPullBindingSpec defines the desired state of AcrPullBinding
 type AcrPullBindingSpec struct {
 	// +kubebuilder:validation:MinLength=0
@@ -38,13 +66,8 @@ type AcrPullBindingSpec struct {
 	// The full server name for the ACR. For example, test.azurecr.io
 	AcrServer string `json:"acrServer"`
 
-	// The Managed Identity client ID that is used to authenticate with ACR (specify one of ClientID or ResourceID)
-	// +optional
-	ManagedIdentityClientID string `json:"managedIdentityClientID"`
-
-	// The Managed Identity resource ID that is used to authenticate with ACR (if ClientID is specified, this is ignored)
-	// +optional
-	ManagedIdentityResourceID string `json:"managedIdentityResourceID"`
+	// The identity information. Used to authenticate with ACR
+	Identity *IdentityConfig `json:"identity"`
 
 	// The Service Account to associate the image pull secret with. If this is not specified, the default Service Account
 	// of the namespace will be used.
