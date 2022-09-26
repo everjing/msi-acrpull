@@ -1,18 +1,6 @@
 package authorizer
 
-import (
-	"errors"
-	"time"
-
-	"github.com/Azure/msi-acrpull/pkg/authorizer/mock_authorizer"
-	"github.com/Azure/msi-acrpull/pkg/authorizer/types"
-
-	"github.com/golang/mock/gomock"
-
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-)
-
+/*
 var _ = Describe("Authorizer Tests", func() {
 	var (
 		mockCtrl *gomock.Controller
@@ -89,3 +77,4 @@ var _ = Describe("Authorizer Tests", func() {
 		})
 	})
 })
+*/

@@ -1,16 +1,6 @@
 package authorizer
 
-import (
-	"fmt"
-	"os"
-	"sync"
-	"time"
-
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/ghttp"
-)
-
+/*
 var _ = Describe("Token Retriever Tests", func() {
 	var (
 		server *ghttp.Server
@@ -192,3 +182,4 @@ func newTestTokenRetriever(metadataEndpoint string, cacheExpirationInMilliSecond
 		cacheExpiration:  time.Duration(cacheExpirationInMilliSeconds) * time.Millisecond,
 	}
 }
+*/

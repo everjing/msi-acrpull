@@ -36,7 +36,8 @@ type AcrPullBindingReconciler struct {
 	client.Client
 	Log                              logr.Logger
 	Scheme                           *runtime.Scheme
-	Auth                             authorizer.Interface
+	ManagedIdentityAuth              authorizer.ManagedIdentityAuthorizer
+	WorkloadIdentityAuth             authorizer.WorkloadIdentityAuthorizer
 	DefaultManagedIdentityResourceID string
 	DefaultManagedIdentityClientID   string
 	DefaultACRServer                 string
@@ -84,11 +85,7 @@ func (r *AcrPullBindingReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 	var acrAccessToken types.AccessToken
 	var err error
 
-	if msiClientID != "" {
-		acrAccessToken, err = r.Auth.AcquireACRAccessTokenWithClientID(msiClientID, acrServer)
-	} else {
-		acrAccessToken, err = r.Auth.AcquireACRAccessTokenWithResourceID(msiResourceID, acrServer)
-	}
+	acrAccessToken, err = r.ManagedIdentityAuth.AcquireACRAccessToken(msiClientID, msiResourceID, acrServer)
 	if err != nil {
 		log.Error(err, "Failed to get ACR access token")
 		if err := r.setErrStatus(ctx, err, &acrBinding); err != nil {
