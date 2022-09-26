@@ -1,6 +1,7 @@
 package authorizer
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -12,20 +13,27 @@ import (
 	"time"
 
 	"github.com/Azure/msi-acrpull/pkg/authorizer/types"
+	"github.com/AzureAD/microsoft-authentication-library-for-go/apps/confidential"
 )
 
 const (
 	defaultARMResource              = "https://management.azure.com/"
 	customARMResourceEnvVar         = "ARM_RESOURCE"
-	msiMetadataEndpoint             = "http://169.254.169.254/metadata/identity/oauth2/token"
 	defaultCacheExpirationInSeconds = 600
 )
 
-// TokenRetriever is an instance of ManagedIdentityTokenRetriever
-type TokenRetriever struct {
+type baseTokenRetriever struct {
+	cache           sync.Map
+	cacheExpiration time.Duration
+}
+
+type ManagedIdentityTokenRetriever struct {
+	baseTokenRetriever
 	metadataEndpoint string
-	cache            sync.Map
-	cacheExpiration  time.Duration
+}
+
+type WorkloadIdentityTokenRetriever struct {
+	baseTokenRetriever
 }
 
 type cachedToken struct {
@@ -33,17 +41,20 @@ type cachedToken struct {
 	notAfter time.Time
 }
 
-// NewTokenRetriever returns a new token retriever
-func NewTokenRetriever() *TokenRetriever {
-	return &TokenRetriever{
+// NewManagedIdentityTokenRetriever returns a new managed identity token retriever
+func NewManagedIdentityTokenRetriever() *ManagedIdentityTokenRetriever {
+	const msiMetadataEndpoint = "http://169.254.169.254/metadata/identity/oauth2/token"
+	return &ManagedIdentityTokenRetriever{
+		baseTokenRetriever: baseTokenRetriever{
+			cache:           sync.Map{},
+			cacheExpiration: time.Duration(defaultCacheExpirationInSeconds) * time.Second,
+		},
 		metadataEndpoint: msiMetadataEndpoint,
-		cache:            sync.Map{},
-		cacheExpiration:  time.Duration(defaultCacheExpirationInSeconds) * time.Second,
 	}
 }
 
 // AcquireARMToken acquires the managed identity ARM access token
-func (tr *TokenRetriever) AcquireARMToken(clientID string, resourceID string) (types.AccessToken, error) {
+func (tr *ManagedIdentityTokenRetriever) AcquireARMToken(clientID string, resourceID string) (types.AccessToken, error) {
 	cacheKey := strings.ToLower(clientID)
 	if cacheKey == "" {
 		cacheKey = strings.ToLower(resourceID)
@@ -68,7 +79,7 @@ func (tr *TokenRetriever) AcquireARMToken(clientID string, resourceID string) (t
 	return token, nil
 }
 
-func (tr *TokenRetriever) refreshToken(clientID, resourceID string) (types.AccessToken, error) {
+func (tr *ManagedIdentityTokenRetriever) refreshToken(clientID, resourceID string) (types.AccessToken, error) {
 	msiEndpoint, err := url.Parse(tr.metadataEndpoint)
 	if err != nil {
 		return "", err
@@ -126,9 +137,77 @@ func (tr *TokenRetriever) refreshToken(clientID, resourceID string) (types.Acces
 	return types.AccessToken(tokenResp.AccessToken), nil
 }
 
+// NewWorkloadIdentityTokenRetriever returns a new workload identity token retriever
+func NewWorkloadIdentityTokenRetriever() *WorkloadIdentityTokenRetriever {
+	return &WorkloadIdentityTokenRetriever{
+		baseTokenRetriever: baseTokenRetriever{
+			cache:           sync.Map{},
+			cacheExpiration: time.Duration(defaultCacheExpirationInSeconds) * time.Second,
+		},
+	}
+}
+
+func (tr *WorkloadIdentityTokenRetriever) AcquireARMToken(ctx context.Context, clientID, tenantID, acrFQDN string) (types.AccessToken, error) {
+	const authorityHost = "https://login.microsoftonline.com/"
+
+	// Check if token is in the cache
+	cacheKey := strings.ToLower(clientID)
+	cached, ok := tr.cache.Load(cacheKey)
+	if ok {
+		token := cached.(cachedToken)
+		if time.Now().UTC().Sub(token.notAfter) < 0 {
+			return token.token, nil
+		}
+
+		tr.cache.Delete(cacheKey)
+	}
+
+	// Get auth token from service account token
+	cred := confidential.NewCredFromAssertionCallback(func(context.Context, confidential.AssertionRequestOptions) (string, error) {
+		return readJWTFromFS()
+	})
+
+	confidentialClientApp, err := confidential.New(
+		clientID,
+		cred,
+		confidential.WithAuthority(fmt.Sprintf("%s%s/oauth2/token", authorityHost, tenantID)))
+	if err != nil {
+		return "", fmt.Errorf("Unable to get new confidential client app: %w", err)
+	}
+
+	resource := os.Getenv(customARMResourceEnvVar)
+	if resource == "" {
+		resource = defaultARMResource
+	}
+
+	resource = strings.TrimSuffix(resource, "/")
+	if !strings.HasSuffix(resource, ".default") {
+		// .default needs to be added to the scope
+		resource += "/.default"
+	}
+
+	authResult, err := confidentialClientApp.AcquireTokenByCredential(ctx, []string{resource})
+	if err != nil {
+		return "", fmt.Errorf("Unable to acquire bearer token for clientID %s: %w.", clientID, err)
+	}
+
+	return types.AccessToken(authResult.AccessToken), nil
+}
+
 func closeResponse(resp *http.Response) {
 	if resp == nil {
 		return
 	}
 	resp.Body.Close()
+}
+
+func readJWTFromFS() (string, error) {
+	const SATokenPath = "/var/run/secrets/token/saToken"
+
+	f, err := os.ReadFile(SATokenPath)
+	if err != nil {
+		return "", err
+	}
+
+	return string(f), nil
 }

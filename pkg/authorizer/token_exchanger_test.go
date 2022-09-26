@@ -1,14 +1,6 @@
 package authorizer
 
-import (
-	"net/url"
-	"time"
-
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/ghttp"
-)
-
+/*
 var _ = Describe("Token Exchanger Tests", func() {
 	var (
 		server *ghttp.Server
@@ -90,3 +82,4 @@ func newTestTokenExchanger() *TokenExchanger {
 		acrServerScheme: "http",
 	}
 }
+*/
