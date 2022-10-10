@@ -3,6 +3,7 @@ kind: AcrPullBinding
 metadata:
   name: test
 spec:
-  managedIdentityClientID: "test-client-id"
-  acrServer: "test.azurecr.io"
+  workloadIdentityClientID: "b742f8aa-201e-41ac-8421-708d49bbe1da"
+  workloadIdentityTenantID: "72f988bf-86f1-41af-91ab-2d7cd011db47"
+  acrServer: "h22wiapcr.azurecr.io"
 
